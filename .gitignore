@@ -1,0 +1,21 @@
+# Python (apexquant/, clay-model/): uv-managed venvs, not uv.lock.
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Lean (thms/): Mathlib's build cache and ad-hoc verification scratch,
+# both multi-GB and fully regenerable via `lake exe cache get && lake build`.
+# Duplicated here (thms/ already has its own) so this tree stays self-
+# contained if it's ever extracted on its own.
+.lake/
+work/
+*.olean
+
+# Make-target output (apexquant/Makefile's llm-table, converted artifacts).
+results/
+
+# Editor/OS cruft.
+.DS_Store
+*.swp
