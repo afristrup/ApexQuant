@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "clay"
+version = "0.1.0"
+description = "Clay v1.5 foundation model encoder, de-Lightning'd and Triton-fused: the frozen Earth-observation encoder ApexQuant evaluates in Table 4/5."
+requires-python = ">=3.10"
+authors = [{ name = "apexquant contributors" }]
+keywords = ["clay", "geospatial", "vision-transformer", "triton", "earth-observation", "foundation-model"]
+
+# torch is the only hard runtime dependency besides pyyaml (for the sensor
+# metadata.yaml loader); the whole encoder runs on CPU via the torch reference
+# path. Triton is the GPU fast-path and is intentionally optional, exactly as in
+# the root package: every op picks its Triton kernel or its torch reference
+# through clay.ops.use_triton, which never imports triton unless it is installed.
+dependencies = [
+    "pyyaml>=6.0",
+    "torch>=2.1",
+
+[project.optional-dependencies]
+triton = ["triton>=2.1"]
+# huggingface-hub is only needed by test_real_weights.py, to check whether the
+# published Clay v1.5 checkpoint is already in the local HF cache.
+dev = ["huggingface-hub>=1.26.0", "pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/clay"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

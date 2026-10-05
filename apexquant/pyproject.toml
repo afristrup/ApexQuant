@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "apexquant"
+version = "0.1.0"
+description = "Calibration-free elastic quantization by residual re-isotropization: a fresh Hadamard rotation each pass returns the residual to a known spherical marginal, so a scalar, E8 or trellis codebook stays optimal at every pass and every prefix of passes is a valid lower-rate model."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "apexquant contributors" }]
+keywords = ["quantization", "triton", "hadamard", "trellis", "lattice-codes", "calibration-free"]
+
+# torch is the only hard dependency: the scalar and E8 stages, and every test,
+# run on CPU via the reference torch path. Triton is the GPU fast path (the
+# Viterbi trellis encoder, the fused GEMM/GEMV kernels) and is intentionally
+# optional -- the kernels fall back to torch and say so rather than failing.
+dependencies = [
+    "numpy>=1.24",
+    "torch>=2.1",
+]
+
+[project.optional-dependencies]
+triton = ["triton>=2.1"]
+# Needed only by experiments/ that load real Hugging Face checkpoints (the LLM
+# and Clay tables), and by the bn/ QBN test suite's CNN arms (ResNet-50,
+# EfficientNet-B0, ConvNeXt-Tiny come from timm; their ImageNet fixtures load
+# through PIL). The package itself (src/apexquant) never imports any of these.
+experiments = [
+    "accelerate>=1.14.0",
+    "clay",
+    "datasets>=5.0.1",
+    "huggingface-hub>=1.26.0",
+    "pillow>=10.0",
+    "safetensors>=0.4",
+    "scipy>=1.11",
+    "timm>=1.0",
+    "transformers>=4.40",
+]
+dev = ["pytest>=8"]
+# Mid-M tensor-core fast path for table 13's tiered-decode benchmark only:
+# the vendored fork of gemlite's GEMM_SPLITK reuses its autotune pruner and
+# config cache, so pin the version the fork was cut from. The triton pin here
+# is load-bearing too, not just the paper's reported environment: gemlite
+# 0.5.1.post1's kernel_config_pruner returns a generator, and Triton's own
+# autotuner calls len() on that return value starting in 3.8, so 3.8+ raises
+# `TypeError: object of type 'generator' has no len()` on every autotuned call
+# -- a real upstream incompatibility, not a version nicety. Nothing else in
+# this package imports gemlite, and the dispatcher (kernels/fused_dequant_matmul.py)
+# checks GEMLITE_SPLITK_AVAILABLE before ever routing to it.
+gemlite = ["gemlite==0.5.1.post1", "triton==3.7.*"]
+
+[project.scripts]
+apexquant = "apexquant.cli:main"
+
+# clay-model is this repo's sibling package, not a published one: the Clay v1.5
+# experiments (progressive_trellis_clay.py and friends) import it directly.
+[tool.uv.sources]
+clay = { path = "../clay-model", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/apexquant"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
