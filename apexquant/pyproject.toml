@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "apexquant"
 version = "0.1.0"
 description = "Calibration-free elastic quantization by residual re-isotropization: a fresh Hadamard rotation each pass returns the residual to a known spherical marginal, so a scalar, E8 or trellis codebook stays optimal at every pass and every prefix of passes is a valid lower-rate model."
-readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "apexquant contributors" }]
 keywords = ["quantization", "triton", "hadamard", "trellis", "lattice-codes", "calibration-free"]
@@ -38,6 +37,7 @@ experiments = [
     "transformers>=4.40",
 ]
 dev = ["pytest>=8"]
+vllm = ["vllm>=0.33,<0.34"]
 # Mid-M tensor-core fast path for table 13's tiered-decode benchmark only:
 # the vendored fork of gemlite's GEMM_SPLITK reuses its autotune pruner and
 # config cache, so pin the version the fork was cut from. The triton pin here
@@ -64,3 +64,6 @@ packages = ["src/apexquant"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[project.entry-points."vllm.general_plugins"]
+apexquant = "apexquant.vllm:register"

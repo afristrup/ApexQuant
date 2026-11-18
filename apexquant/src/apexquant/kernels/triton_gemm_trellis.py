@@ -70,6 +70,7 @@ re-isotropisation the method depends on.
 from __future__ import annotations
 
 import functools
+import os
 
 import torch
 
@@ -100,7 +101,14 @@ if GEMM_TRELLIS_AVAILABLE:
         triton.Config({"BLOCK_M": bm, "BLOCK_N": bn, "BLOCK_K": bk},
                       num_warps=warps, num_stages=stages)
         for bm, bn, bk, warps, stages in [
-            # Every entry is here because some real shape picked it out of a
+            # Decode graphs can retain a symbolic M while running with M=1.
+            # Small-M tiles avoid launching a mostly masked 64-row program.
+            (1, 32, 16, 2, 2),
+            (1, 64, 16, 2, 2),
+            (1, 128, 16, 2, 2),
+            (8, 32, 16, 2, 2),
+            (8, 64, 16, 2, 2),
+            # Every entry is here because some real shape picked it out by a
             # 72-config sweep: Clay's four linears and its patch embedding at
             # P=1 and P=2, and the gemma-3 shape at P=3. Widening the sweep
             # beyond this bought P=2 nothing further and P=1 nothing at all.
@@ -123,6 +131,23 @@ if GEMM_TRELLIS_AVAILABLE:
             (128, 128, 32, 8, 2),
         ]
     ]
+
+    def _seed_fixed_config(rx, words, scale, table, parts, M, N, K, split_k):
+        if os.environ.get("APEXQUANT_GEMM_FIXED_CONFIG", "1") != "0":
+            return
+        if N == 4096 and K == 14336:
+            wanted = (64, 64, 32, 4, 1)
+        elif N == 4096:
+            wanted = (64, 32, 32, 8, 2)
+        else:
+            wanted = (128, 128, 32, 8, 2)
+        config = next(c for c in GEMM_CONFIGS if
+                      (c.kwargs["BLOCK_M"], c.kwargs["BLOCK_N"],
+                       c.kwargs["BLOCK_K"], c.num_warps, c.num_stages) == wanted)
+        key = (M, N, K, split_k, str(rx.dtype), str(words.dtype),
+               str(scale.dtype), str(table.dtype), str(parts.dtype),
+               str(parts.dtype))
+        _gemm_trellis_kernel.cache.setdefault(key, config)
 
     def prune_gemm_configs(configs, named_args, **kwargs):
         """Drop tiles whose K block cannot address the code stream.
@@ -169,35 +194,42 @@ if GEMM_TRELLIS_AVAILABLE:
         k_lo = chunk * words_per_chunk * VPW
         k_hi = tl.minimum(k_lo + words_per_chunk * VPW, K)
 
-        rx_base = rx_ptr + p * stride_rp + offs_m[:, None] * stride_rm
-        wrd_base = words_ptr + p * stride_wp + offs_n[:, None] * stride_wn
-        sc_base = scale_ptr + p * stride_sp + offs_n * stride_sn
-        part_base = part_ptr + (pid_z * M + offs_m)[:, None] * stride_om
+        # 64-bit offsets: at 70B prefill (M=16384, N=57344) three passes put the
+        # partial buffer past 2**31 elements.
+        p64 = p.to(tl.int64)
+        rx_base = rx_ptr + p64 * stride_rp + offs_m.to(tl.int64)[:, None] * stride_rm
+        wrd_base = words_ptr + p64 * stride_wp + offs_n.to(tl.int64)[:, None] * stride_wn
+        sc_base = scale_ptr + p64 * stride_sp + offs_n.to(tl.int64) * stride_sn
+        part_base = part_ptr + (pid_z.to(tl.int64) * M + offs_m)[:, None] * stride_om
 
         acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
         for k0 in range(k_lo, k_hi, BLOCK_K):
             offs_k = k0 + tl.arange(0, BLOCK_K)
+            k_mask = offs_k < K
             w_idx = offs_k // VPW                 # word holding this coordinate
+            word_mask = k_mask
             shift = 32 + BITS * (offs_k % VPW) - (L - BITS)
 
             # Chunks are group-aligned and BLOCK_K divides both GROUP_SIZE and
             # the chunk length, so the tile is full and lies in one group.
             rx = tl.load(rx_base + offs_k[None, :],
-                         mask=m_mask[:, None], other=0.0)
+                         mask=m_mask[:, None] & k_mask[None, :], other=0.0)
             cur = tl.load(wrd_base + w_idx[None, :],
-                          mask=n_mask[:, None], other=0)
+                          mask=n_mask[:, None] & word_mask[None, :], other=0)
             # Zero at a group boundary, which is the walk's zero padding: a scale
             # group is one trellis run and starts the register at zero.
             has_prev = (w_idx % WORDS_PER_GROUP) != 0
             prev = tl.load(wrd_base + w_idx[None, :] - 1,
-                           mask=n_mask[:, None] & has_prev[None, :], other=0)
+                           mask=n_mask[:, None] & word_mask[None, :] & has_prev[None, :],
+                           other=0)
 
             pair = (cur.to(tl.int64) << 32) | (prev.to(tl.int64) & 0xFFFFFFFF)
             win = ((pair >> shift[None, :]) & ((1 << L) - 1)).to(tl.int32)
-            code = tl.load(cw_ptr + win)
+            code = tl.load(cw_ptr + win,
+                           mask=word_mask[None, :], other=0.0)
 
             sc = tl.load(sc_base + (k0 // GROUP_SIZE) * stride_sg,
-                         mask=n_mask, other=0.0)          # one group per tile
+                         mask=n_mask & (k0 < K), other=0.0)  # one group per tile
             acc += tl.dot(rx, tl.trans(code * sc[:, None]), input_precision=PREC)
 
         # Epilogue. Only reachable when this program owns the whole output
@@ -319,7 +351,12 @@ def triton_gemm_trellis(rx: torch.Tensor, words: torch.Tensor,
     tiles = triton.cdiv(M, nominal_m) * triton.cdiv(N, nominal_n)
     sms = _sm_count(rx.device.index or 0)
     max_chunks = max(1, words_per_row // wpg)
-    split_k = min(max(1, (2 * sms) // max(1, tiles * P)), max_chunks)
+    if torch.compiler.is_compiling():
+        # A symbolic split leaks into Inductor's grid while Triton specializes
+        # SPLIT_K from the trace-time value. Keep both sides graph-static.
+        split_k = 1
+    else:
+        split_k = min(max(1, (2 * sms) // max(1, tiles * P)), max_chunks)
     words_per_chunk = triton.cdiv(triton.cdiv(words_per_row, split_k), wpg) * wpg
 
     # The in-GEMM epilogue is only correct on a single band; with more, each
@@ -332,6 +369,7 @@ def triton_gemm_trellis(rx: torch.Tensor, words: torch.Tensor,
         return (triton.cdiv(M, meta["BLOCK_M"]), triton.cdiv(N, meta["BLOCK_N"]),
                 split_k * P)
 
+    _seed_fixed_config(rx, words, scale, table, parts, M, N, K, split_k)
     _gemm_trellis_kernel[grid](
         rx, words, scale, table, parts,
         bias if fused_epilogue and bias is not None else parts,

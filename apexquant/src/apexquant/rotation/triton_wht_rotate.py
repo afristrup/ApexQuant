@@ -16,7 +16,7 @@ MAX_FUSED_DIM = 1024
 
 
 def triton_wht_rotate(x: torch.Tensor, dim: int, seed: int,
-                      passes: int) -> torch.Tensor:
+                      passes: int, signs: torch.Tensor | None = None) -> torch.Tensor:
     """Rotate grouped rows by each pass's randomized Hadamard, in one launch.
 
     Same result as ``torch.matmul`` against the cached rotation matrices, to
@@ -40,7 +40,8 @@ def triton_wht_rotate(x: torch.Tensor, dim: int, seed: int,
     if dim & (dim - 1) or dim > MAX_FUSED_DIM:
         raise ValueError(f"group size {dim} must be a power of two <= {MAX_FUSED_DIM}")
 
-    signs = stacked_signs(dim, seed, passes, str(x.device))
+    if signs is None:
+        signs = stacked_signs(dim, seed, passes, str(x.device))
     out = torch.empty(passes, rows, dim, device=x.device, dtype=x.dtype)
     tile = wht_row_tile(dim)
     wht_rotate_kernel[(triton.cdiv(rows, tile), passes)](

@@ -1,10 +1,9 @@
 /-
 # Autoformalisation of the theory of *Progressive Density-Matched Quantisation*
 
-Source: `texts/pagers/paper/sections/{background,theory}.tex`
-(ApexQuant Team, 3 July 2026).  Lean 4.33.0-rc1 + Mathlib v4.33.0-rc1.
+Source: the paper's background and theory sections.  Lean 4.33.0-rc1 + Mathlib v4.33.0-rc1.
 
-Build: `lake build` in `thms_compressed/`.  Every theorem below is either proved outright or
+Build: `lake build` in `thms/`.  Every theorem below is either proved outright or
 carries its assumptions in its signature; **nothing is asserted by `axiom`**, and `#print axioms`
 on every public result returns only `propext, Classical.choice, Quot.sound`.
 
@@ -17,7 +16,7 @@ theory section and proofs appendix.
 | paper                                        | here                                        |
 | -------------------------------------------- | ------------------------------------------- |
 | eq. (2.2), the pass recursion                | `resid`, `unitVec`, `code`                  |
-| `‖r_{p+1}‖ = ‖r_p‖·‖u_p − q(u_p)‖`           | `norm_resid_succ` (§1) — *identity, no hypotheses* |
+| `‖r_{p+1}‖ = ‖r_p‖·‖u_p − q(u_p)‖`           | `norm_resid_succ` (§1), *identity, no hypotheses* |
 | `w − ŵ_P = r_P`                              | `sub_recon` (§1)                            |
 | Prop. 2, one pass                            | `integral_norm_resid_sq_succ` (§3)          |
 | Prop. 2, `E‖r_P‖² = ρ^{2P}·E‖w‖²`            | `integral_norm_resid_sq` (§3)               |
@@ -64,8 +63,8 @@ theory section and proofs appendix.
 The development covers the core theory (re-isotropisation, geometric decay, optimality,
 block marginals, the bridge from abstract hypotheses to $O(d)$) and two auxiliary results
 (uniqueness of the rotation-invariant measure and the block-form constant).  Results not
-referenced in the paper — including the per-pass concentration bound, the deployed-rotation
-formalisation, and the detailed Haar-versus-Hadamard gap analysis — are not included.
+referenced in the paper, including the per-pass concentration bound, the deployed-rotation
+formalisation, and the detailed Haar-versus-Hadamard gap analysis, are not included.
 -/
 
 import Mathlib

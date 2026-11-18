@@ -1,8 +1,8 @@
 
 /-! ### §4b  The coordinate law, and the link to `ρ`
 
-The audit of the first draft observed, correctly, that `ν` in §3b/§6 and `sphericalPdf` in §4
-were formally unrelated symbols that the prose silently identifies.  `sphericalCoordLaw d` is
+Without it, `ν` in §3b/§6 and `sphericalPdf` in §4
+would be formally unrelated symbols that the prose identifies.  `sphericalCoordLaw d` is
 that identification made explicit: the probability measure on `ℝ` whose density is `f_d`.  With
 it, `rhoSq_eq_ratio` applies to the paper's actual `ρ` with no side hypothesis. -/
 

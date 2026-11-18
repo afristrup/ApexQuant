@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import os
+
 import torch
 
 from .hadamard_backend import matmul_rotation_max_dim
+from .group_signs import group_signs
 from .random_sign_vector import random_sign_vector
 from .rotation_matrix import MATMUL_ROTATION_MAX_DIM, rotation_matrix
 from .walsh_hadamard_transform import walsh_hadamard_transform
@@ -35,6 +38,10 @@ def random_rotation(x: torch.Tensor, seed: int) -> torch.Tensor:
         Rotated tensor of the same shape.
     """
     d = x.shape[-1]
+    if os.environ.get("APEXQUANT_GROUP_SIGNS") == "1" and x.ndim >= 2:
+        # One independent sign vector per group (axis -2) instead of one per pass.
+        signs = group_signs(x.shape[-2], d, int(seed), str(x.device)).to(x.dtype)
+        return walsh_hadamard_transform(x * signs)
     if d <= matmul_rotation_max_dim(x, MATMUL_ROTATION_MAX_DIM):
         return x @ rotation_matrix(d, int(seed), str(x.device)).to(x.dtype)
     signs = random_sign_vector(d, seed, device=x.device).to(x.dtype)

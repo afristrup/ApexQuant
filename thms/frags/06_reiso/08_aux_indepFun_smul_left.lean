@@ -1,5 +1,5 @@
 
-/-- `indepFun_smul_left`, proved — but with the joint-measurability instance added. -/
+/-- `indepFun_smul_left`, proved, but with the joint-measurability instance added. -/
 private theorem aux_indepFun_smul_left [MeasurableSMul₂ G X] [IsProbabilityMeasure μ]
     {κ : Measure G} [IsProbabilityMeasure κ] [κ.IsMulRightInvariant] [MeasurableMul G]
     {R : Ω → G} {r : Ω → X} (hRmeas : Measurable R) (hrmeas : Measurable r)

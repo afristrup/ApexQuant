@@ -3,7 +3,7 @@
 measurable group `G` that acts on `E` through isometries `ι`, together with the regularity the
 measure-theoretic argument needs.
 
-Every field is a statement about the *inputs* of the algorithm — never about a residual law, and
+Every field is a statement about the *inputs* of the algorithm, never about a residual law, and
 never about a per-pass expectation.  That is the whole point: `IsotropicPasses.indep` and
 `IsotropicPasses.distortion`, which are statements about residuals, become theorems. -/
 structure RotationStream (ι : G → (E ≃ₗᵢ[ℝ] E)) (q : E → E) (W : Ω → E) (R : Ω → ℕ → G)
@@ -16,7 +16,7 @@ structure RotationStream (ι : G → (E ≃ₗᵢ[ℝ] E)) (q : E → E) (W : Ω
   meas_W : Measurable W
   /-- every rotation is measurable. -/
   meas_R : ∀ p, Measurable (fun ω => R ω p)
-  /-- **every pass draws from the same law `κ`** — one Haar draw per pass. -/
+  /-- **every pass draws from the same law `κ`**, one Haar draw per pass. -/
   law_R : ∀ p, μ.map (fun ω => R ω p) = κ
   /-- **the pass-`p` rotation is fresh**: independent of the weight row and of all earlier
   rotations, which by `resid_rotScheme_eq_residPast` is everything `r_p` can depend on.

@@ -1,7 +1,7 @@
 
 /-- **The fresh-rotation lemma.**  If the weight row and the whole rotation stream are mutually
 independent, then the pass-`p` rotation is independent of the pair *(weight row, all earlier
-rotations)* — which by `resid_rotScheme_eq_residPast` is everything `r_p` depends on. -/
+rotations)*, which by `resid_rotScheme_eq_residPast` is everything `r_p` depends on. -/
 theorem indepFun_rot_past_of_iIndepFun {W : Ω → E} {R : Ω → ℕ → G}
     (hW : Measurable W) (hR : ∀ p, Measurable (fun ω => R ω p))
     (h : iIndepFun (streamVar W R) μ) (p : ℕ) :

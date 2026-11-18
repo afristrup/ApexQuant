@@ -1,6 +1,6 @@
 
 /-- **Theorem 1, abstract form, part 1 (the law).**  If `R ∼ κ` is Haar-distributed and
-independent of `r`, and `r` lives in a single orbit, then `R • r` has the orbit law — *whatever
+independent of `r`, and `r` lives in a single orbit, then `R • r` has the orbit law, *whatever
 the law of `r`*.  This is the "`r` may be anything" clause that licenses reuse of one codebook
 across residual passes. -/
 theorem law_smul_eq_orbitLaw [IsProbabilityMeasure μ] {κ : Measure G} [IsProbabilityMeasure κ]

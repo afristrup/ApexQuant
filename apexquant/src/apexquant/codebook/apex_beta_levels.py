@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import functools
+
 import torch
 
 from .symmetrize_levels import symmetrize_levels
 
 
+@functools.lru_cache(maxsize=None)
 def apex_beta_levels(bits: int, fan_in: int, grid: int = 40001, iters: int = 200,
                      device=None) -> torch.Tensor:
     """Lloyd-Max codebook for the post-rotation coordinate density ``f_d``.
@@ -36,6 +39,9 @@ def apex_beta_levels(bits: int, fan_in: int, grid: int = 40001, iters: int = 200
         iters: Lloyd-Max fixed-point iterations (``f_d`` is log-concave for
             ``d >= 3`` so the iteration has a unique optimum).
         device: Optional device for the returned tensor.
+
+    Cached, since the solve costs seconds of CPU and a model asks for the same
+    codebook once per layer; callers must not modify the returned tensor.
 
     Returns:
         Sorted 1-D float32 tensor of ``2**bits`` reconstruction levels in

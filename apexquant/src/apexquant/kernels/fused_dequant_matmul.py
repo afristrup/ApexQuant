@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 
 from ..quantize.quantized_weight import QuantizedWeight
+from ..quantize.require_unguarded import require_unguarded
 from ..rotation.random_rotation import random_rotation
 from ..rotation.rotation_matrix import MATMUL_ROTATION_MAX_DIM, rotation_matrix
 from .gemlite_splitk_nonuniform import GEMLITE_SPLITK_AVAILABLE, gemlite_splitk_nonuniform
@@ -79,6 +80,7 @@ def fused_dequant_matmul(x: torch.Tensor, qw: QuantizedWeight,
     Returns:
         Output ``(..., out_features)``.
     """
+    require_unguarded(qw)
     backend = _select_backend(x, qw.group_size, force_backend)
     if backend == "torch":
         return torch_fused_dequant_matmul(x, qw)
@@ -111,11 +113,14 @@ def fused_dequant_matmul(x: torch.Tensor, qw: QuantizedWeight,
     # overhead that dominates small layers at batch one.
     use_lop3 = qw.bits == 2 and gs % 16 == 0 and GEMV_MP_LOP3_AVAILABLE
     if (backend == "triton" and x2.shape[0] == 1
+            and not qw.graph_safe
             and (use_lop3 or (qw.passes > 1 and GEMV_MP_AVAILABLE))):
         P = qw.passes
         words, scale, levels = qw.decode_views()
         if gs <= MATMUL_ROTATION_MAX_DIM:
-            R = _stacked_rotations(gs, qw.seed, P, str(x.device))  # (P, gs, gs)
+            R = qw.rotations if qw.rotations is not None else _stacked_rotations(
+                gs, qw.seed, P, str(x.device)
+            )
             rx = torch.einsum("ng,pgh->pnh", xg[0], R).reshape(P, -1).contiguous()
         else:
             rx = torch.stack([
@@ -135,12 +140,15 @@ def fused_dequant_matmul(x: torch.Tensor, qw: QuantizedWeight,
     # rows (tf32 tensor cores). Group-aligned tiles need the group size to be a
     # multiple of 64; narrower groups keep the general kernel below.
     if (backend == "triton" and x2.shape[0] > 1
-            and gs % 64 == 0 and GEMM_MID_AVAILABLE and GEMV_BLOCK_AVAILABLE):
+            and gs % 64 == 0 and GEMM_MID_AVAILABLE and GEMV_BLOCK_AVAILABLE
+            and not qw.graph_safe):
         P = qw.passes
         M = x2.shape[0]
         words, scale, levels = qw.decode_views()
         if gs <= MATMUL_ROTATION_MAX_DIM:
-            R = _stacked_rotations(gs, qw.seed, P, str(x.device))  # (P, gs, gs)
+            R = qw.rotations if qw.rotations is not None else _stacked_rotations(
+                gs, qw.seed, P, str(x.device)
+            )
             rx = torch.einsum("mng,pgh->pmnh", xg, R).reshape(P, M, -1).contiguous()
         else:
             rx = torch.stack([
@@ -159,7 +167,10 @@ def fused_dequant_matmul(x: torch.Tensor, qw: QuantizedWeight,
         words, scale, levels = qw.decode_views()
 
         def one_pass(p: int) -> torch.Tensor:
-            rx = random_rotation(xg, qw.seed + p).reshape(1, -1).contiguous()
+            if qw.rotations is None:
+                rx = random_rotation(xg, qw.seed + p).reshape(1, -1).contiguous()
+            else:
+                rx = torch.einsum("mng,gh->mnh", xg, qw.rotations[p].to(x.dtype)).reshape(1, -1)
             return triton_gemv_dequant_matmul(
                 rx, words[p].view(torch.uint8), scale[p], levels, gs, qw.bits)
 
@@ -171,7 +182,10 @@ def fused_dequant_matmul(x: torch.Tensor, qw: QuantizedWeight,
     levels = qw.levels.contiguous()
 
     def one_pass(p: int) -> torch.Tensor:
-        rx = random_rotation(xg, qw.seed + p).reshape(x2.shape[0], -1).contiguous()
+        if qw.rotations is None:
+            rx = random_rotation(xg, qw.seed + p).reshape(x2.shape[0], -1).contiguous()
+        else:
+            rx = torch.einsum("mng,gh->mnh", xg, qw.rotations[p].to(x.dtype)).reshape(x2.shape[0], -1)
         packed_2d = qw.packed[p].reshape(qw.out_features, -1).contiguous()
         return gemm(rx, packed_2d, qw.scale[p].contiguous(), levels, gs, qw.bits)
 

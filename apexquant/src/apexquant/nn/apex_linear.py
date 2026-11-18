@@ -8,6 +8,7 @@ from torch import nn
 from ..config import ApexQuantConfig
 from ..kernels.fused_dequant_matmul import fused_dequant_matmul
 from ..quantize.quantized_weight import QuantizedWeight
+from ..quantize.require_unguarded import require_unguarded
 from ..quantize.turboquantize_weight import turboquantize_weight
 
 
@@ -24,6 +25,7 @@ class ApexQuantLinear(nn.Module):
 
     def __init__(self, qw: QuantizedWeight, bias: torch.Tensor | None) -> None:
         super().__init__()
+        require_unguarded(qw)
         self.in_features = qw.in_features
         self.out_features = qw.out_features
         self.group_size = qw.group_size

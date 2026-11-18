@@ -15,8 +15,8 @@ Nothing below identifies it with the normalised surface measure on `S^{d-1}`, so
 phrase "`u` is uniform on the sphere" is **not** established here: that identification needs
 (a) Haar measure on the orthogonal group, (b) uniqueness of the rotation-invariant probability
 measure on the sphere, and (c) a Mathlib handle on the uniform measure on `Metric.sphere`.
-Mathlib currently supplies none of the three — there is no `MeasurableSpace` instance on
-`E ≃ₗᵢ[ℝ] E` and no Haar measure on the orthogonal group — so the abstract results below cannot
+Mathlib currently supplies none of the three, there is no `MeasurableSpace` instance on
+`E ≃ₗᵢ[ℝ] E` and no Haar measure on the orthogonal group, so the abstract results below cannot
 presently even be *instantiated* at the paper's setting.  What is proved is the
 distributional-invariance half of Theorem 1: the law of `R • x` is the same for every `x` in the
 orbit, whatever the law of `x`.  That is the paper's right-invariance argument, and it is the

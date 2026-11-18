@@ -1,5 +1,5 @@
 
-/-- **`IsotropicPasses.indep`, derived.**  The squared scale `‖r_p‖²` — a function of the past —
+/-- **`IsotropicPasses.indep`, derived.**  The squared scale `‖r_p‖²`, a function of the past,
 is independent of the squared normalised quantisation error at pass `p`, because the latter is a
 function of `R_p • r̂_p` and `R_p` is fresh.  This is the inductive discharge across all passes
 that the header records as missing. -/

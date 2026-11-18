@@ -38,10 +38,11 @@ def fold_partials_kernel(  # noqa: PLR0913
     offs_n = tl.program_id(1) * BLOCK_N + tl.arange(0, BLOCK_N)
     keep = (offs_m < M)[:, None] & (offs_n < N)[None, :]
 
+    tile = offs_m.to(tl.int64)[:, None] * N + offs_n[None, :]
     acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
     for band in range(bands):
         acc += tl.load(
-            parts_ptr + band * stride_band + offs_m[:, None] * N + offs_n[None, :],
+            parts_ptr + band.to(tl.int64) * stride_band + tile,
             mask=keep, other=0.0,
         )
 
@@ -50,4 +51,4 @@ def fold_partials_kernel(  # noqa: PLR0913
     if ACT_GELU:
         acc = 0.5 * acc * (1.0 + tl.math.erf(acc * FOLD_INV_SQRT2))
 
-    tl.store(out_ptr + offs_m[:, None] * N + offs_n[None, :], acc, mask=keep)
+    tl.store(out_ptr + tile, acc, mask=keep)

@@ -1,7 +1,7 @@
 /-! ## §8  Scope: what is *not* claimed
 
 The paper's Remark ("Scope") is careful that per-pass scalar optimality does **not** imply that
-`P` passes at `b` bits beat one pass at `Pb` bits.  There is nothing to prove here — the point is
+`P` passes at `b` bits beat one pass at `Pb` bits.  There is nothing to prove here, the point is
 that no theorem above has that shape, and the table at the head of this file is the complete list
 of what is claimed.  Three further remarks, one of which has since been discharged:
 
@@ -214,7 +214,7 @@ of what is claimed.  Three further remarks, one of which has since been discharg
   `gapWeight_le_mid_sharp`, `integral_gapWeight_le_sharp` and `integral_gapWeight_le_tailsharp`
   are untouched and not weakened
 * Remark ("Concentration"): this was once outside the development and is now inside it.
-  §25–§35 prove the variance estimate the remark rests on — `variance_stageErr_le_bounded`,
+  §25–§35 prove the variance estimate the remark rests on, `variance_stageErr_le_bounded`,
   `Var ‖u − q u‖² ≤ 4ρ²/(d − 2)` for every bounded nearest-codeword stage and every `d ≥ 3`,
   by a Gaussian Poincaré inequality with constant one, the Dunkl–Williams sharp slope and an
   `η`-net from finite codebooks to bounded ones.  §13's downstream compounding is therefore no

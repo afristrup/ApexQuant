@@ -37,8 +37,12 @@ def torch_fused_dequant_matmul(x: torch.Tensor, qw: QuantizedWeight) -> torch.Te
 
     levels = qw.levels.to(x.dtype)
     out = x.new_zeros(x2.shape[0], qw.out_features)
+    rotations = qw.rotations
     for p in range(qw.passes):
-        rx = random_rotation(xg, qw.seed + p)                       # (M, groups, gs)
+        if rotations is None:
+            rx = random_rotation(xg, qw.seed + p)
+        else:
+            rx = torch.einsum("mng,gh->mnh", xg, rotations[p].to(x.dtype))
         codes = levels[unpack_bits(qw.packed[p], qw.bits).long()]   # (out, groups, gs)
         # Fold the per-(out, group) scale into the codebook values so the whole
         # pass is a single contraction -- no (M, out, groups) intermediate.

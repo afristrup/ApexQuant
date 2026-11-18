@@ -1,6 +1,6 @@
 
 /-- **Re-isotropisation, the statement the paper is really making.**  The unit direction `u_p`
-has *the same law* `orbitLaw κ x₀` at every pass `p` — no matter what the residual `r_p` looks
+has *the same law* `orbitLaw κ x₀` at every pass `p`, no matter what the residual `r_p` looks
 like, and no matter what the quantiser `q` has done to it in the previous `p` passes.
 
 This is the fact `IsotropicPasses.distortion` was assuming.  It is the payoff of §5's

@@ -18,6 +18,7 @@ keywords = ["clay", "geospatial", "vision-transformer", "triton", "earth-observa
 dependencies = [
     "pyyaml>=6.0",
     "torch>=2.1",
+]
 
 [project.optional-dependencies]
 triton = ["triton>=2.1"]

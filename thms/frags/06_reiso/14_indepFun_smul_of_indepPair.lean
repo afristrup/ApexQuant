@@ -3,7 +3,7 @@
 
 `indepFun_smul_comp` above is, at `G = O(d)` acting on `ℝ^d`, *vacuous* for the paper's purpose:
 the hypothesis `∀ ω, r ω ∈ orbit G x₀` forces `‖r ω‖` to be a.s. constant, so these lemmas can
-only be instantiated with the *normalised* residual `r̂ = r/‖r‖` — and then `f(r̂) = ‖r̂‖ ≡ 1`.
+only be instantiated with the *normalised* residual `r̂ = r/‖r‖`, and then `f(r̂) = ‖r̂‖ ≡ 1`.
 The paper's claim is `u ⟂ ‖r‖`, and `‖r‖` is not a function of `r̂`.
 
 The correct statement carries the scale along as a separate variable `Z`: `R • r̂` is independent

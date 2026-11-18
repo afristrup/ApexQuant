@@ -37,6 +37,7 @@ to the reconstruct-and-cuBLAS path, and the difference runs in this direction.
 from __future__ import annotations
 
 import functools
+import os
 
 import torch
 import torch.nn.functional as F
@@ -113,6 +114,8 @@ class ProgressiveTrellisLinear(nn.Module):
         self.register_buffer("scale", scale)
         self.register_buffer("table", table, persistent=False)
         self.register_buffer("bias", bias if bias is not None else None)
+        self._dense_cache: torch.Tensor | None = None
+        self._resident_dense = os.environ.get("APEXQUANT_TRELLIS_DENSE_CACHE", "0") == "1"
 
     def _rotate(self, xg: torch.Tensor) -> torch.Tensor:
         """Grouped activations ``(M, groups, gs)`` to ``(P, M, K)``.
@@ -152,6 +155,14 @@ class ProgressiveTrellisLinear(nn.Module):
         return dequantize(codes, self.scale, self.codec, self.in_features,
                           self.group_size, self.seed, passes=self.passes)
 
+    def _cached_dense(self, dtype: torch.dtype) -> torch.Tensor:
+        if self._dense_cache is None:
+            self._dense_cache = self._dense().to(dtype)
+            self.words = None
+            self.scale = None
+            self.table = None
+        return self._dense_cache
+
     def forward(self, x: torch.Tensor, gelu: bool = False) -> torch.Tensor:
         """Apply the layer, optionally with GELU fused into the matmul.
 
@@ -167,7 +178,10 @@ class ProgressiveTrellisLinear(nn.Module):
         packed_ok = m == 1 or (m <= TRELLIS_GEMM_MAX_ROWS
                                and trellis_gemm_block_k(gs, self.codec.bits))
         epilogue_done = False
-        if not packed_ok:
+        if self._resident_dense:
+            dense = self._cached_dense(x2.dtype)
+            out = F.linear(x2.to(dense.dtype), dense)
+        elif not packed_ok:
             out = F.linear(x2.float(), self._dense())
         else:
             pad = self.num_groups * gs - x2.shape[-1]

@@ -3,8 +3,8 @@
 appendix_RHT.tex answers this for Clay v1.5 three ways: the per-pass rate against
 a dense Haar rotation, the end-to-end error under substitution, and the KS
 distance of the post-rotation coordinates. All three are measured on one vision
-encoder, and the paper's headline claims are on language models, which is the
-seam a theoretical reviewer is most likely to pull on. This closes it by
+encoder, and the paper's headline claims are on language models, so the
+language-model case is left open. This closes it by
 repeating the end-to-end substitution on decoder weights.
 
 The recursion is written out here rather than imported, because

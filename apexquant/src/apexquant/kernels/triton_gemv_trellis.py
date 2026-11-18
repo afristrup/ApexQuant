@@ -78,8 +78,11 @@ exactly that residency (see ``experiments/trellis_real_kernel_check.py``).
 from __future__ import annotations
 
 import functools
+import os
 
 import torch
+
+from .fold_partials import fold_partials
 
 try:
     import triton
@@ -165,6 +168,53 @@ if GEMV_TRELLIS_AVAILABLE:
 # length is what the kernels check, because reading it costs nothing on a decode
 # path where a value check would cost a device sync per layer. The value is NaN
 # so that a read past the codewords is loud as well.
+    @triton.jit
+    def _gemv_trellis_fused_pass_kernel(
+        rx_ptr, words_ptr, scale_ptr, cw_ptr, out_ptr,
+        N, K, words_per_row, words_per_chunk,
+        stride_rp, stride_wp, stride_wn, stride_sp, stride_sn, stride_sg,
+        GROUP_SIZE: tl.constexpr, WORDS_PER_GROUP: tl.constexpr,
+        BITS: tl.constexpr, L: tl.constexpr, VPW: tl.constexpr,
+        SPLIT_K: tl.constexpr, PASSES: tl.constexpr,
+        BLOCK_N: tl.constexpr, BLOCK_W: tl.constexpr,
+    ):
+        pid_n = tl.program_id(0)
+        pid_z = tl.program_id(1)
+        chunk = pid_z
+        offs_n = pid_n * BLOCK_N + tl.arange(0, BLOCK_N)
+        n_mask = offs_n < N
+        w_lo = chunk * words_per_chunk
+        w_hi = tl.minimum(w_lo + words_per_chunk, words_per_row)
+        acc = tl.zeros((BLOCK_N,), dtype=tl.float32)
+        for p in range(PASSES):
+            active = True
+            rx_base = rx_ptr + p * stride_rp
+            wrd_base = words_ptr + p * stride_wp + offs_n[:, None] * stride_wn
+            sc_base = scale_ptr + p * stride_sp + offs_n[:, None] * stride_sn
+            for w0 in range(w_lo, w_hi, BLOCK_W):
+                offs_w = w0 + tl.arange(0, BLOCK_W)
+                w_mask = (offs_w < w_hi) & active
+                cur = tl.load(wrd_base + offs_w[None, :], mask=n_mask[:, None] & w_mask[None, :], other=0)
+                has_prev = w_mask & ((offs_w % WORDS_PER_GROUP) != 0)
+                prev = tl.load(wrd_base + offs_w[None, :] - 1, mask=n_mask[:, None] & has_prev[None, :], other=0)
+                wsum = tl.zeros((BLOCK_N, BLOCK_W), dtype=tl.float32)
+                for v in tl.static_range(VPW):
+                    lo = BITS * v - (L - BITS)
+                    if lo >= 0:
+                        win = (cur >> lo) & ((1 << L) - 1)
+                    else:
+                        top = -lo
+                        win = (((prev >> (32 + lo)) & ((1 << top) - 1)) | ((cur & ((1 << (L - top)) - 1)) << top))
+                    code = tl.load(cw_ptr + win, mask=w_mask[None, :], other=0)
+                    kk = offs_w * VPW + v
+                    rxv = tl.load(rx_base + kk, mask=(kk < K) & active, other=0.0)
+                    wsum += code * rxv[None, :]
+                g = (offs_w * VPW) // GROUP_SIZE
+                sc = tl.load(sc_base + g[None, :] * stride_sg, mask=n_mask[:, None] & w_mask[None, :], other=0.0)
+                acc += tl.sum(wsum * sc, axis=1)
+        tl.store(out_ptr + pid_z * N + offs_n, acc, mask=n_mask)
+
+
 WINDOW_TABLE_TAG = float("nan")
 
 
@@ -283,7 +333,18 @@ def triton_gemv_trellis(rx: torch.Tensor, words: torch.Tensor,
             f"words ({words_per_row} x {vpw}) do not cover K={K}")
     wpg = group_size // vpw  # words per scale group, and per trellis run
 
-    block_n, block_w = 64, 32
+    large_output = N >= 16000
+    default_block_n = 32 if large_output else 64
+    block_n = int(os.environ.get("APEXQUANT_GEMV_BLOCK_N", default_block_n))
+    block_w = int(os.environ.get("APEXQUANT_GEMV_BLOCK_W", "16"))
+    default_warps = 2 if large_output or (N <= 12288 and K <= 4096) else 4
+    warps = int(os.environ.get("APEXQUANT_GEMV_WARPS", default_warps))
+    stages = int(os.environ.get("APEXQUANT_GEMV_STAGES", "3"))
+    if block_n not in (32, 64, 128) or block_w not in (16, 32, 64):
+        raise ValueError("GEMV block sizes must be BLOCK_N in {32, 64, 128} "
+                         "and BLOCK_W in {16, 32, 64}")
+    if warps not in (2, 4, 8) or stages not in (2, 3, 4):
+        raise ValueError("invalid GEMV warps or stages")
     n_blocks = triton.cdiv(N, block_n)
     sms = _sm_count(rx.device.index or 0)
     max_chunks = max(1, words_per_row // wpg)
@@ -293,8 +354,31 @@ def triton_gemv_trellis(rx: torch.Tensor, words: torch.Tensor,
     # the whole row serially. Measured, that cost 25-45% and turned the fusion
     # into a loss against separate launches. What the split actually bounds is
     # the serial walk per program, and that bound does not depend on P.
-    split_k = min(max(1, (2 * sms) // max(1, n_blocks)), max_chunks)
+    requested_split = int(os.environ.get("APEXQUANT_GEMV_SPLIT_K", "0"))
+    split_k = (requested_split if requested_split else
+               max(1, (2 * sms) // max(1, n_blocks)))
+    if not requested_split and N <= 4096:
+        split_k = min(split_k, 2)
+    split_k = min(max(1, split_k), max_chunks)
     words_per_chunk = triton.cdiv(triton.cdiv(words_per_row, split_k), wpg) * wpg
+
+    fused_passes = split_k == 1 or os.environ.get("APEXQUANT_GEMV_FUSED_PASSES", "0") == "1"
+    if fused_passes:
+        parts = torch.empty((split_k, N), dtype=torch.float32, device=rx.device)
+        _gemv_trellis_fused_pass_kernel[(n_blocks, split_k)](
+            rx, words, scale, table, parts,
+            N, K, words_per_row, words_per_chunk,
+            rx.stride(0), words.stride(0), words.stride(1),
+            scale.stride(0), scale.stride(1), scale.stride(2),
+            GROUP_SIZE=group_size, WORDS_PER_GROUP=wpg,
+            BITS=bits, L=trellis_bits, VPW=vpw,
+            SPLIT_K=split_k, PASSES=P,
+            BLOCK_N=block_n, BLOCK_W=block_w,
+            num_warps=warps, num_stages=stages,
+        )
+        if split_k == 1:
+            return parts
+        return fold_partials(parts, split_k, 1, N)
 
     parts = torch.empty((split_k * P, N), dtype=torch.float32,
                         device=rx.device)
@@ -307,10 +391,10 @@ def triton_gemv_trellis(rx: torch.Tensor, words: torch.Tensor,
         BITS=bits, L=trellis_bits, VPW=vpw,
         SPLIT_K=split_k,
         BLOCK_N=block_n, BLOCK_W=block_w,
-        num_warps=4, num_stages=3,
+        num_warps=warps, num_stages=stages,
     )
     # The fixed reduction order is the point: this is what the kernel's atomics
     # used to do in whatever order the programs retired in.
     if parts.shape[0] == 1:
         return parts  # see the GEMM's fold: a length-one sum is a copy
-    return parts.sum(0, keepdim=True)
+    return fold_partials(parts, parts.shape[0], 1, N)

@@ -1,5 +1,5 @@
 
-/-- The fresh rotation is independent of the pair *(normalised residual, squared scale)* — the
+/-- The fresh rotation is independent of the pair *(normalised residual, squared scale)*, the
 exact hypothesis of `indepFun_smul_of_indepPair`.  This is `RotationStream.fresh` pushed through
 the measurable map `resid_rotScheme_eq_residPast` supplies. -/
 theorem indepFun_rot_dirScale (h : RotationStream ι q W R κ x₀ μ) (p : ℕ) :

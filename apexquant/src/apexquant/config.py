@@ -42,6 +42,11 @@ class ApexQuantConfig:
             only order in which a per-column scale means anything; applied first
             it leaves the theory intact, since the two diagonals are
             deterministic in the weight and so independent of the rotations.
+        guard_threshold: When set, a group whose normalized third moment
+            (see :func:`normalized_third_moment`) exceeds this value is rotated
+            by a second independent Hadamard transform, and the artifact
+            records one flag per group and pass. ``None`` disables the guard.
+            Gaussian-like directions score about 1.6 and an axis ``sqrt(d)``.
     """
 
     group_size: int = 128
@@ -51,6 +56,7 @@ class ApexQuantConfig:
     codebook: str = "gaussian"
     lp_norm: float = 0.7
     sinkhorn_iters: int = 0
+    guard_threshold: float | None = None
 
     def __post_init__(self) -> None:
         if self.bits not in (2, 4, 8):
@@ -59,6 +65,8 @@ class ApexQuantConfig:
             raise ValueError("codebook must be 'gaussian', 'apex', 'uniform', or 'lp'")
         if self.lp_norm <= 0:
             raise ValueError("lp_norm must be > 0")
+        if self.guard_threshold is not None and self.guard_threshold <= 0:
+            raise ValueError("guard_threshold must be > 0")
         if self.sinkhorn_iters < 0:
             raise ValueError("sinkhorn_iters must be >= 0")
         if self.group_size < 2 or (self.group_size & (self.group_size - 1)) != 0:

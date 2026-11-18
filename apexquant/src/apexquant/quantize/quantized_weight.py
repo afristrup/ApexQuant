@@ -33,6 +33,9 @@ class QuantizedWeight:
             row diagonal scales the output, and the packed kernels never see
             either. Both are ``None`` unless the artifact was built with
             ``ApexQuantConfig(sinkhorn_iters > 0)``.
+        guard: Optional bool tensor ``(passes, out_features, num_groups)`` marking
+            groups rotated twice by the Hadamard guard. ``None`` when the guard
+            is off or never fired, so such artifacts equal unguarded ones.
     """
 
     packed: torch.Tensor
@@ -45,6 +48,9 @@ class QuantizedWeight:
     bits: int = 4
     row_scale: torch.Tensor | None = None
     col_scale: torch.Tensor | None = None
+    rotations: torch.Tensor | None = None
+    guard: torch.Tensor | None = None
+    graph_safe: bool = False
 
     @property
     def passes(self) -> int:
@@ -71,6 +77,9 @@ class QuantizedWeight:
             bits=self.bits,
             row_scale=None if self.row_scale is None else self.row_scale.to(device),
             col_scale=None if self.col_scale is None else self.col_scale.to(device),
+            rotations=None if self.rotations is None else self.rotations.to(device),
+            guard=None if self.guard is None else self.guard.to(device),
+            graph_safe=self.graph_safe,
         )
 
     def nbytes(self) -> int:
@@ -86,6 +95,8 @@ class QuantizedWeight:
         for extra in (self.row_scale, self.col_scale):
             if extra is not None:
                 total += extra.numel() * extra.element_size()
+        if self.guard is not None:
+            total += (self.guard.numel() + 7) // 8
         return total
 
     def decode_views(self) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:

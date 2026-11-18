@@ -3,7 +3,7 @@
 `aux_map_pair` with the action applied to the *first* component of `X × β` while `β` is dragged
 through untouched: the orbit hypothesis still makes the inner `κ`-measure the constant
 `orbitLaw κ x₀ s`, so Fubini factorises exactly as before.  Note that the second factor is the
-law of `Z` alone — all information about `r` beyond its orbit has been washed out. -/
+law of `Z` alone, all information about `r` beyond its orbit has been washed out. -/
 private theorem aux_map_pair_snd [MeasurableSMul₂ G X] [IsProbabilityMeasure μ]
     {κ : Measure G} [IsProbabilityMeasure κ] [κ.IsMulRightInvariant] [MeasurableMul G]
     {β : Type*} [MeasurableSpace β]

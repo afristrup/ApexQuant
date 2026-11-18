@@ -1,5 +1,5 @@
 
-/-- `indepFun_smul_comp`, proved — but with the joint-measurability instance added. -/
+/-- `indepFun_smul_comp`, proved, but with the joint-measurability instance added. -/
 private theorem aux_indepFun_smul_comp [MeasurableSMul₂ G X] [IsProbabilityMeasure μ]
     {κ : Measure G} [IsProbabilityMeasure κ] [κ.IsMulRightInvariant] [MeasurableMul G]
     {β : Type*} [MeasurableSpace β] {f : X → β}

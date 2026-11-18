@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import torch
 
+from ..rotation.inverse_guarded_rotation import inverse_guarded_rotation
 from ..rotation.inverse_random_rotation import inverse_random_rotation
 from .quantized_weight import QuantizedWeight
 from .unpack_bits import unpack_bits
@@ -31,7 +32,10 @@ def dequantize_weight(qw: QuantizedWeight) -> torch.Tensor:
         seed = qw.seed + p
         indices = unpack_bits(qw.packed[p], qw.bits).long()  # (out, groups, gs)
         recon_rot = qw.scale[p].unsqueeze(-1) * qw.levels[indices]
-        out = out + inverse_random_rotation(recon_rot, seed)
+        if qw.guard is None:
+            out = out + inverse_random_rotation(recon_rot, seed)
+        else:
+            out = out + inverse_guarded_rotation(recon_rot, seed, qw.guard[p])
 
     dense = out.reshape(qw.out_features, qw.num_groups * qw.group_size)
     dense = dense[:, : qw.in_features]

@@ -1,6 +1,6 @@
 
-/-- **The bridge.**  A rotation stream satisfying `RotationStream` — hypotheses about the
-*inputs* only — supplies `IsotropicPasses` with `ρ² = stageDistortion q (orbitLaw κ x₀)`.  All
+/-- **The bridge.**  A rotation stream satisfying `RotationStream`, hypotheses about the
+*inputs* only, supplies `IsotropicPasses` with `ρ² = stageDistortion q (orbitLaw κ x₀)`.  All
 four fields, including the two substantive ones, are derived. -/
 theorem isotropicPasses_of_rotationStream (h : RotationStream ι q W R κ x₀ μ)
     (hW : Integrable (fun ω => ‖W ω‖ ^ 2) μ)

@@ -19,7 +19,7 @@ Two facts, both proved below, place the boundary precisely:
   every pass" is optimality within a strictly smaller class whenever the containment is strict,
   and the attainable decay constant over a richer class is no larger.
 
-Nothing here quantifies the gap — that is an information-theoretic statement about the source,
+Nothing here quantifies the gap, that is an information-theoretic statement about the source,
 not a consequence of this recursion.  What is established is that the gap is on the right side of
 the inequality, and that the framework does not have to pay it. -/
 

@@ -26,7 +26,7 @@ def linear_error_coefficients(
         ``t_l**2 = E||W_hat_l - W*_l||_F**2 / ||W*_l||_F**2``,
 
     with coefficients ``alpha_l`` that depend only on the pretrained weights and
-    *not* on the quantizer — which is what makes them worth estimating once and
+    *not* on the quantizer, which is what makes them worth estimating once and
     reusing across every operating point. That is exactly the quantity our
     geometric decay law produces in closed form: after ``P`` passes,
     ``t_l = rho_l**P``. Composing the two turns the pass count into a prediction

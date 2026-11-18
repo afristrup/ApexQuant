@@ -11,6 +11,8 @@ from ..codebook.lp_levels import lp_levels
 from ..codebook.uniform_levels import uniform_levels
 from ..config import ApexQuantConfig
 from ..preprocess.sinkhorn_scales import sinkhorn_scales
+from ..rotation.guarded_rotation import guarded_rotation
+from ..rotation.inverse_guarded_rotation import inverse_guarded_rotation
 from ..rotation.inverse_random_rotation import inverse_random_rotation
 from ..rotation.random_rotation import random_rotation
 from .pack_bits import pack_bits
@@ -95,10 +97,15 @@ def turboquantize_weight(weight: torch.Tensor, config: ApexQuantConfig) -> Quant
     residual = w
     packed_passes: list[torch.Tensor] = []
     scale_passes: list[torch.Tensor] = []
+    guard_passes: list[torch.Tensor] = []
 
     for p in range(config.passes):
         seed = config.seed + p
-        rotated = random_rotation(residual, seed)  # (out, groups, gs)
+        if config.guard_threshold is None:
+            rotated = random_rotation(residual, seed)  # (out, groups, gs)
+        else:
+            rotated, flags = guarded_rotation(residual, seed, config.guard_threshold)
+            guard_passes.append(flags)
         # Normalize each group onto the codebook's domain (unit variance for
         # gaussian, unit sphere for apex), then assign nearest levels.
         scale = normalizer(rotated)
@@ -109,7 +116,14 @@ def turboquantize_weight(weight: torch.Tensor, config: ApexQuantConfig) -> Quant
 
         # Reconstruct this pass and peel it off the residual.
         recon_rot = scale * levels[indices.long()]
-        residual = residual - inverse_random_rotation(recon_rot, seed)
+        if config.guard_threshold is None:
+            residual = residual - inverse_random_rotation(recon_rot, seed)
+        else:
+            residual = residual - inverse_guarded_rotation(recon_rot, seed, flags)
+
+    guard = torch.stack(guard_passes, dim=0) if guard_passes else None
+    if guard is not None and not guard.any():
+        guard = None
 
     return QuantizedWeight(
         packed=torch.stack(packed_passes, dim=0),
@@ -122,4 +136,5 @@ def turboquantize_weight(weight: torch.Tensor, config: ApexQuantConfig) -> Quant
         bits=config.bits,
         row_scale=row_scale,
         col_scale=col_scale,
+        guard=guard,
     )

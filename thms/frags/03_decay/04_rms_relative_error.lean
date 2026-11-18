@@ -8,7 +8,7 @@ theorem rms_relative_error [IsProbabilityMeasure μ] {w : E} (hw : w ≠ 0) (hρ
   -- NOTE ON `hρ`: the hypothesis `0 ≤ ρ` is genuinely load-bearing, not cosmetic.
   -- `IsotropicPasses` constrains `ρ` only through `ρ ^ 2` (field `distortion`), so it is
   -- invariant under `ρ ↦ -ρ`; the conclusion is not, for odd `P`.  Without `hρ` the
-  -- statement is FALSE — see the report accompanying this fragment for an explicit
+  -- statement is FALSE, see the report accompanying this fragment for an explicit
   -- counterexample.  The honest unconditional form of eq. (2.5) is `= |ρ| ^ P`.
   have h1 : ∫ ω, ‖resid (S ω) w P‖ ^ 2 ∂μ = ρ ^ (2 * P) * ∫ _ω : Ω, ‖w‖ ^ 2 ∂μ :=
     integral_norm_resid_sq h P

@@ -22,6 +22,8 @@ Quick start::
 
 from __future__ import annotations
 
+from .analysis.distribution_shift import distribution_shift
+from .analysis.domain_shift_protocol import measure_domain_shift
 from .analysis.error_tail_statistics import error_tail_statistics
 from .analysis.layer_damage_table import layer_damage_table
 from .analysis.linear_error_coefficients import linear_error_coefficients
@@ -42,6 +44,10 @@ from .kernels.fused_dequant_matmul import fused_dequant_matmul
 from .nn.apex_linear import ApexQuantLinear
 from .nn.linear_is_fusable import linear_is_fusable
 from .nn.quantize_linear_modules import quantize_linear_modules
+from .moe import (
+    ProgressiveE8MoE, ProgressiveMoE, ProgressiveScalarMoE, ProgressiveTrellisMoE,
+)
+from .inference import InferenceSession, KVCache, TrellisKVCache, decode_step, prefill, sample_next_token
 from .preprocess.sinkhorn_scales import sinkhorn_scales
 from .quantize.dequantize_weight import dequantize_weight
 from .quantize.quantized_weight import QuantizedWeight
@@ -67,6 +73,8 @@ __all__ = [
     "benchmark_throughput",
     "cuda_graph_forward",
     "dequantize_weight",
+    "distribution_shift",
+    "measure_domain_shift",
     "error_tail_statistics",
     "fused_dequant_matmul",
     "generalized_gaussian_levels",
@@ -80,6 +88,16 @@ __all__ = [
     "memory_traffic_model",
     "progressive_dequantize",
     "progressive_quantize",
+    "ProgressiveE8MoE",
+    "ProgressiveMoE",
+    "ProgressiveScalarMoE",
+    "ProgressiveTrellisMoE",
+    "InferenceSession",
+    "KVCache",
+    "TrellisKVCache",
+    "decode_step",
+    "prefill",
+    "sample_next_token",
     "quantize_linear_modules",
     "random_token_divergence",
     "resolve_group_size",

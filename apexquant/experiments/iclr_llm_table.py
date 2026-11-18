@@ -1,10 +1,7 @@
 """Every remaining LLM number the ICLR table set needs, in one resumable run.
 
-This exists because two tables in the draft have no provenance in this repository:
-`tab:llm-full` carries values traceable only to the earlier single-pass preprint,
-and `tab:kl`'s Gemma rows match no run here at all. Both must be regenerated with
-this paper's harness before they can be shipped. `tab:kl` is the Gemma job and
-lives in `deploy/gemma_h200.sh`; this script is everything else.
+It regenerates `tab:llm-full` and the non-Gemma rows of `tab:kl` with this
+paper's harness, so every number in those tables comes from one protocol.
 
 Seven arms, at 4 and 2 bits, all through the SAME protocol so the columns are
 comparable: each target Linear weight is quantized and reconstructed in place, and

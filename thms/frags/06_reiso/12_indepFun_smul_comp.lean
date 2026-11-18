@@ -1,5 +1,5 @@
 
-/-- Composing: any function of `r` — in particular `‖r‖` — is independent of `R • r`. -/
+/-- Composing: any function of `r`, in particular `‖r‖`, is independent of `R • r`. -/
 theorem indepFun_smul_comp [IsProbabilityMeasure μ] {κ : Measure G} [IsProbabilityMeasure κ]
     [κ.IsMulRightInvariant] [MeasurableMul G] [MeasurableSMul₂ G X] {β : Type*} [MeasurableSpace β] {f : X → β}
     {R : Ω → G} {r : Ω → X} (hRmeas : Measurable R) (hrmeas : Measurable r)

@@ -1,5 +1,5 @@
 
-/-- `law_smul_eq_orbitLaw`, proved — but with the joint-measurability instance added. -/
+/-- `law_smul_eq_orbitLaw`, proved, but with the joint-measurability instance added. -/
 private theorem aux_law_smul_eq_orbitLaw [MeasurableSMul₂ G X] [IsProbabilityMeasure μ]
     {κ : Measure G} [IsProbabilityMeasure κ] [κ.IsMulRightInvariant] [MeasurableMul G]
     {R : Ω → G} {r : Ω → X} (hRmeas : Measurable R) (hrmeas : Measurable r)

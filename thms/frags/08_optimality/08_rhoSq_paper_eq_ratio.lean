@@ -1,7 +1,7 @@
 
 /-! ### §6b  The paper's `ρ`
 
-`rho d cb (sphericalCoordLaw d)` is the constant of eq. (2.3) as the paper defines it — the one
+`rho d cb (sphericalCoordLaw d)` is the constant of eq. (2.3) as the paper defines it, the one
 plotted in the design chart, computable by quadrature before any weight is touched. -/
 
 /-- Eq. (2.3) at the Lemma 1 coordinate law: `ρ² = E[(t-q t)²] / E[t²]` with no side hypothesis,
